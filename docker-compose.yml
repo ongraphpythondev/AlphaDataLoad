@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  pyspark:
+    image: "sparstreaming_pyspark:latest"
+    command:
+      - /bin/bash
+      - -c
+      - |
+        apt update -y 
+        apt upgrade -y
+        apt install default-jdk -y
+        python3 load_data.py
+    volumes:
+      - .:/code
+    networks:
+      - elevatus
+
+
+networks:
+  elevatus:
+    name: elevatus
+    driver: bridge
