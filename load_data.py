@@ -31,7 +31,7 @@ print("Streaming DataFrame : ", dataStream.isStreaming)
 
 def write_mongo_row(df, epoch_id): 
     print("uploading data")
-    df.write.format("mongo").mode("overwrite").option("database","load_data").option("collection", "country").save()
+    df.write.format("mongo").mode("overwrite").option("database","load_data").option("collection", "company").save()
     print("Uploaded data")
     pass
 
