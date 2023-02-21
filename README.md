@@ -15,7 +15,7 @@ MONGO_URL = <Your url>
 ```
 ### Create virtual enviorment and activate using following command
 ```
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 ```
 
@@ -26,5 +26,5 @@ pip install -r requirements.txt
 
 ### Run the code 
 ```
-python load_data.py
+python3 load_data.py
 ```
