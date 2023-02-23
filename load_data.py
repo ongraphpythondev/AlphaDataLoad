@@ -30,15 +30,10 @@ print("Streaming DataFrame : ", dataStream.isStreaming)
 
 
 def write_mongo_row(df, epoch_id): 
-    print("uploading data")
+    print("DATA IS UPLOADING............")
     df.write.format("mongo").mode("overwrite").option("database","load_data").option("collection", "company").save()
-    print("Uploaded data")
+    print("DATA HAS BEEN UPLOADED YOU CAN CLOSE THE TERMINAL")
     pass
 
 
-query = dataStream.writeStream.foreachBatch(write_mongo_row).start()
-
-print(query.status)
-time.sleep(40)
-print(query.status)
-query.stop()
+dataStream.writeStream.foreachBatch(write_mongo_row).start().awaitTermination()

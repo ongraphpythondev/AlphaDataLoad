@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   pyspark:
-    image: "sparstreaming_pyspark:latest"
+    build: .
     command:
       - /bin/bash
       - -c
@@ -13,8 +13,22 @@ services:
         python3 load_data.py
     volumes:
       - .:/code
+    depends_on:
+      - db
     networks:
       - elevatus
+  
+  db:
+    container_name: mongo 
+    image: mongo
+    restart: always
+    networks:
+      - elevatus
+    ports:
+      - '6001:27017'
+
+volumes:
+  mongo:
 
 
 networks:
