@@ -4,6 +4,7 @@ from pyspark.sql import SparkSession
 from dotenv import load_dotenv
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
+from pymongo import MongoClient
 
 
 load_dotenv()
@@ -32,14 +33,13 @@ print("Streaming DataFrame : ", dataStream.isStreaming)
 
 sample_schema = (
         StructType()
-        .add("Id", IntegerType())
+        .add("Id", StringType())
         .add("Company_url", StringType())
-        .add("Company_ID", IntegerType())
+        .add("Company_ID", StringType())
         .add("Company_Name", StringType())
         .add("Headquarters", StringType())
         .add("Website", StringType())
         .add("Employees", StringType())
-        .add("Stock_Symbol", StringType())
         .add("Stock_Symbol", StringType())
         .add("Ticker", StringType())
         .add("Revenue", StringType())
@@ -51,20 +51,57 @@ sample_schema = (
         .add("Company_Logo_URL", StringType())
     )
 
-base_df = dataStream.selectExpr("CAST(value as STRING)", "timestamp")
+base_df = dataStream.selectExpr("CAST(value as STRING)")
 base_df.printSchema()
 info_dataframe = base_df.select(
-        from_json(col("value"), sample_schema).alias("sample"), "timestamp"
+        from_json(col("value"), sample_schema).alias("sample")
+    ).select("sample.*")
+
+info_dataframe = info_dataframe.withColumn("Id",info_dataframe.Id.cast(IntegerType()))
+info_dataframe = info_dataframe.withColumn("Company_ID",info_dataframe.Company_ID.cast(IntegerType()))
+
+info_dataframe.printSchema()
+
+count=0
+def write_mongo_row(df): 
+    cluster = MongoClient(MONGO_URL)
+    db = cluster["new_data"]
+    data = {
+        "Id":df.Id,
+        "Company_url": df.Company_url,
+        "Company_ID": df.Company_ID,
+        "Company_Name": df.Company_Name,
+        "Headquarters": df.Headquarters,
+        "Website": df.Website,
+        "Employees": df.Employees,
+        "Stock_Symbol": df.Stock_Symbol,
+        "Ticker": df.Ticker,
+        "Revenue": df.Revenue,
+        "Phone": df.Phone,
+        "Siccode": df.Siccode,
+        "Naicscode": df.Naicscode,
+        "Description": df.Description,
+        "Industry": df.Industry,
+        "Company_Logo_URL":df.Company_Logo_URL
+    }
+    db.company.update_one(
+        {"Company_ID": df.Company_ID},
+        {'$set': data},
+        upsert=True
     )
-info_df_fin = info_dataframe.select("sample.*", "timestamp")
-info_df_fin.printSchema()
+    global count
+    count+=1
+    print(count)
 
 
-def write_mongo_row(df, epoch_id): 
-    print("DATA IS UPLOADING............")
-    df.write.format("mongo").mode("overwrite").option("database","new_data").option("collection", "company").save()
-    print("DATA HAS BEEN UPLOADED YOU CAN CLOSE THE TERMINAL")
-    pass
+info_dataframe.writeStream.foreach(write_mongo_row).start().awaitTermination()
 
 
-info_df_fin.writeStream.foreachBatch(write_mongo_row).start().awaitTermination()
+# def write_mongo_row(df, epoch_id): 
+#     print("DATA IS UPLOADING............")
+#     df.write.format("mongo").mode("overwrite").option("database","new_data").option("collection", "company").save()
+#     print("DATA HAS BEEN UPLOADED YOU CAN CLOSE THE TERMINAL")
+#     pass
+
+
+# info_dataframe.writeStream.foreachBatch(write_mongo_row).start().awaitTermination()

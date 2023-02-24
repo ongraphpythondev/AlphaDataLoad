@@ -26,21 +26,23 @@ readData.printSchema()
 readData = readData.withColumn("value", to_json(struct("*")).cast("string"),)
 
 
-def write_mongo_row(df, epoch_id): 
+def write_mongo_row(df, epoch_id):
     print("DATA IS UPLOADING............")
     df.write.format("kafka").mode("overwrite").option("topic","country_topic")\
             .option("kafka.bootstrap.servers",KAFKA_BOOTSTRAP_SERVER)\
             .save()
     print("DATA HAS BEEN UPLOADED YOU CAN CLOSE THE TERMINAL")
     pass
+
+
 print("DATA IS UPLOADING............")
 readData.select("value").writeStream\
         .trigger(processingTime="10 seconds")\
         .outputMode("append")\
         .format("kafka")\
-        .option("topic","country_data")\
+        .option("topic","new_data")\
         .option("kafka.bootstrap.servers",KAFKA_BOOTSTRAP_SERVER)\
-        .option("checkpointLocation", "/tmp/data")\
+        .option("checkpointLocation", "/tmp/data3")\
         .start()\
         .awaitTermination()
 
