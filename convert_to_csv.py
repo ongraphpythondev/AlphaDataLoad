@@ -1,5 +1,3 @@
-import openpyxl
-import csv
 import os
 import pandas as pd
 # input excel file path
