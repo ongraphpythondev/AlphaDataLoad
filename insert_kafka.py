@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_json, struct
-from convert_to_csv import convert
+from pyspark.sql.functions import col, to_json, struct,udf, split, element_at
+from pyspark.sql.types import StringType
+# from convert_to_csv import convert
 
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
@@ -10,7 +11,7 @@ spark = SparkSession.builder.appName("Insert to kafka")\
             .getOrCreate()
 
 spark.conf.set("spark.sql.streaming.schemaInference","true")
-convert()
+# convert()
 readData = spark.readStream\
             .format("csv")\
             .option("inferSchema","true")\
@@ -18,40 +19,53 @@ readData = spark.readStream\
             .option("maxFilesPerTrigger", 1)\
             .load("./data")
 
+def convert(s):
+  if "Million" in s:
+    return ''.join(filter(str.isdigit,s))+"000000"
+  if "Billion" in s:
+    return ''.join(filter(str.isdigit,s))+"000000000"
+  return ''.join(filter(str.isdigit, s))
+
+
+def write_string(s):
+  special = "!#$%'()*+,-./:;<=>?@[\]^_`{|}~±™⁀–©≈°Ø•"
+  return ''.join(i for i in s if i not in special)
+
+def employee(s):
+  return ''.join(filter(str.isdigit, s))
+
+
+employe_df = udf(lambda x: employee(x), StringType())
+upperCaseUDF = udf(lambda x:convert(x),StringType()) 
+stringdf = udf(lambda x: write_string(x), StringType())
+
+
 
 readData.printSchema()
 print("Streaming DataFrame : ", readData.isStreaming)
+readData = readData.fillna(value="0", subset=["Employees","Revenue","Siccode", 'Naicscode'])
+readData = readData.fillna(value="", subset=["Company_Name"])
+readData = readData.withColumn("Revenue", upperCaseUDF(col('Revenue')))
+readData = readData.withColumn("Company_Name", stringdf(col('Company_Name')))
+readData = readData.withColumn("Employees", employe_df(col('Employees')))
+readData = readData.withColumn("Naicscode", upperCaseUDF(col('Naicscode')))
+readData = readData.withColumn("Siccode", upperCaseUDF(col('Siccode')))
+
+readData = readData.withColumn("Country",element_at(split(readData["Headquarters"], ', '), -1))\
+  .withColumn("City",element_at(split(readData["Headquarters"], ', '), -3))
+
 readData = readData.select([col(c).cast("string") for c in readData.columns])
 readData.printSchema()
 readData = readData.withColumn("value", to_json(struct("*")).cast("string"),)
 
-
-def write_mongo_row(df, epoch_id):
-    print("DATA IS UPLOADING............")
-    df.write.format("kafka").mode("overwrite").option("topic","country_topic")\
-            .option("kafka.bootstrap.servers",KAFKA_BOOTSTRAP_SERVER)\
-            .save()
-    print("DATA HAS BEEN UPLOADED YOU CAN CLOSE THE TERMINAL")
-    pass
-
-
 print("DATA IS UPLOADING............")
 readData.select("value").writeStream\
         .trigger(processingTime="10 seconds")\
-        .outputMode("append")\
+        .outputMode("update")\
         .format("kafka")\
-        .option("topic","new_data")\
+        .option("topic","company_data_new")\
         .option("kafka.bootstrap.servers",KAFKA_BOOTSTRAP_SERVER)\
         .option("checkpointLocation", "/tmp/data3")\
+        .trigger(processingTime='2 seconds')\
         .start()\
         .awaitTermination()
-
-# readData.select("value").writeStream.foreachBatch(write_mongo_row).start().awaitTermination()
-#         .trigger(processingTime="10 seconds")\
-#         .outputMode("append")\
-#         .format("kafka")\
-#         .option("topic","country_topic")\
-#         .option("kafka.bootstrap.servers",KAFKA_BOOTSTRAP_SERVER)\
-#         .option("checkpointLocation", "/tmp/checkpoint")\
-#         .start()\
-#         .awaitTermination()

@@ -11,7 +11,7 @@ load_dotenv()
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
 MONGO_URL = os.getenv("MONGO_URL")
-KAFKA_TOPIC_NAME = "country_data"
+KAFKA_TOPIC_NAME = "lakh_data3"
 spark = SparkSession.builder.appName("Insert to Mongodb")\
             .master("local[*]")\
             .config("spark.mongodb.input.uri", MONGO_URL) \
@@ -65,7 +65,7 @@ info_dataframe.printSchema()
 count=0
 def write_mongo_row(df): 
     cluster = MongoClient(MONGO_URL)
-    db = cluster["new_data"]
+    db = cluster["lakh_data3"]
     data = {
         "Id":df.Id,
         "Company_url": df.Company_url,
